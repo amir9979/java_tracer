@@ -286,20 +286,21 @@ public class MyInstrumenter implements ClassFileTransformer {
 						String retvalAdditionStr;
 						try {
 							CtClass retType = m.getReturnType();
-							if (retType.isPrimitive()) {
+							if (retType == CtClass.voidType){
+								retvalAdditionStr = "sbArgs.append( \",VOID\" );";
+							} else if (retType.isPrimitive()) {
 								retvalAdditionStr = "sbArgs.append( \",\" + $_ );";
 							} else {
 								retvalAdditionStr = "sbArgs.append( \",\" + System.identityHashCode( $_ ) );";
 							}
 						} catch (javassist.NotFoundException e) {
-							// void retval, do nothing
-							retvalAdditionStr = "";
+							throw e;
 						}
 						String retvalAfterCode = baseAfterCode.replace("{{TRACE_EXCEPTION_OR_RETVAL}}", retvalAdditionStr);
 
 						//create error after-code (for when method is errornous)
 						CtClass etype = ClassPool.getDefault().get("java.lang.Exception");
-						String errorAdditionStr = "sbArgs.append( \",Exception\" );";
+						String errorAdditionStr = "sbArgs.append( \",EXCEPTION\" );";
 						String errorAfterCode = baseAfterCode.replace("{{TRACE_EXCEPTION_OR_RETVAL}}", errorAdditionStr);
 
 						//add dynamic code
