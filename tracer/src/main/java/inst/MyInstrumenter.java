@@ -234,11 +234,37 @@ public byte[] nicerTransform(ClassLoader loader, String className, Class<?> clas
 					continue;
 				}
             	String met=cc.getName()+"@"+method.getName();
-
             	StringBuffer toInsert = new StringBuffer();
+				StringBuffer toInsertAfter = new StringBuffer();
 
           		// Load trace writer class dynamically
-				
+
+				toInsert.append( "long tid = Thread.currentThread().getId();" );
+				toInsert.append( "StringBuilder sbArgs = new StringBuilder();" );
+				if (!Modifier.isStatic(m.getModifiers())){
+					toInsert.append( "sbArgs.append(\",\" + System.identityHashCode( $0 ) );" );
+				}
+				CtClass[] pTypes = m.getParameterTypes();
+				for( int i=0; i < pTypes.length; ++i ) {
+					CtClass pType = pTypes[i];
+					if ( pType.isPrimitive() ) {
+						toInsert.append( "sbArgs.append( \",\" + $args[" + i + "] );" );
+					} else {
+						toInsert.append( "sbArgs.append( \",\" + System.identityHashCode( $args[" + i + "] ) );" );
+					}
+				}
+				// add retval
+				try{
+					CtClass retType = m.getReturnType();
+					if(retType.isPrimitive()){
+						toInsert.append( "sbArgs.append( \",\" + $_ );" );
+					}else{
+						toInsert.append( "sbArgs.append( \",\" + System.identityHashCode( $_ ) );" );
+					}
+				}catch(javassist.NotFoundException e){
+					// void retval, do nothing
+				}
+
             	toInsert.append("Class testsRunnerClass=null;");
             	toInsert.append("try{");
             	toInsert.append("	testsRunnerClass = Class.forName(\"TestsTraces\",true, \"amir\".getClass().getClassLoader().getSystemClassLoader());");
@@ -275,7 +301,7 @@ public byte[] nicerTransform(ClassLoader loader, String className, Class<?> clas
             	toInsert.append("try{");
             	toInsert.append("Class[] cArg = new Class[1];");
             	toInsert.append("cArg[0] = String.class;");
-            	toInsert.append("Object[] params = {\""+ met +"\"};");
+            	toInsert.append("Object[] params = {\""+ met +"\" + sbArgs.toString()};");
         		// If starting a new test, close previous file with trace of previous test
             	boolean isTestFunction = (cc.getName().contains("Test") && method.getName().startsWith("test"));
             	if(isTestFunction){
@@ -294,9 +320,9 @@ public byte[] nicerTransform(ClassLoader loader, String className, Class<?> clas
         		toInsert.append("	e.printStackTrace();");
         		toInsert.append("}");
             	
-            	//String ins="System.out.println(\"[inst2] +\" \" "+met+"\");";                	
             	String ins=toInsert.toString();
-				//System.out.println(ins);
+				String insAfter = ins; //retval
+				// String insCatch = ins.replaceAll("{{REPLACE_WITH_DOLLAR_PARAM}}","\"EXCEPTION\""); //exception TODO ORI
             	try {
             		int mod=m.getModifiers();
             		boolean act=true;
@@ -304,7 +330,9 @@ public byte[] nicerTransform(ClassLoader loader, String className, Class<?> clas
             		act =act & !Modifier.isAbstract(mod);
             		act =act & !Modifier.isFinal(mod);
             		if(act)
-            		m.insertBefore(ins);
+            		m.insertAfter(insAfter,false); //false means it is NOT "asFinally" -> executes only if an exception was not thrown
+					// CtClass etype = ClassPool.getDefault().get("java.lang.RuntimeException"); TODO ORI
+					// m.addCatch("{ " + insCatch + " throw $e; }", etype); TODO ORI
 				}
 				catch(Exception e){
 				System.out.println("exception in insertBefore "+ met);
@@ -312,23 +340,7 @@ public byte[] nicerTransform(ClassLoader loader, String className, Class<?> clas
 					System.err.println(met);
 					e.printStackTrace();
 				}
-            	/*ins="System.out.flush();";
-				try {
-            	m.insertBefore(ins);
-				}
-				catch(Exception e){
-					System.err.println(met);
-				}*/
-				
-				
-				// If finished current test, copy current.txt to a file to start a new current.txt
-				// to avoid blowup of file
-			/*	if(cc.getName().startsWith("Test") && method.getName().startsWith("test")){
-					File i = new File();
-					
-				}
-										}
-				*/
+            	
             }
 			}
             byteCode = cc.toBytecode();
