@@ -298,9 +298,9 @@ public class MyInstrumenter implements ClassFileTransformer {
 						String retvalAfterCode = baseAfterCode.replace("{{TRACE_EXCEPTION_OR_RETVAL}}", retvalAdditionStr);
 
 						//create error after-code (for when method is errornous)
-						// CtClass etype = ClassPool.getDefault().get("java.lang.RuntimeException");
-						// String errorAdditionStr = "sbArgs.append( \", __$$EXCEPTION$$__\" );";
-						// String errorAfterCode = baseAfterCode.replace("{{TRACE_EXCEPTION_OR_RETVAL}}", errorAdditionStr);
+						CtClass etype = ClassPool.getDefault().get("java.lang.Exception");
+						String errorAdditionStr = "sbArgs.append( \",Exception\" );";
+						String errorAfterCode = baseAfterCode.replace("{{TRACE_EXCEPTION_OR_RETVAL}}", errorAdditionStr);
 
 						//add dynamic code
 						try {
@@ -309,7 +309,7 @@ public class MyInstrumenter implements ClassFileTransformer {
 									&& !Modifier.isFinal(mod);
 							if (editableBody) {
 								m.insertAfter(retvalAfterCode, false); //false means it is NOT "asFinally" -> executes only if an exception was not thrown
-								// m.addCatch("{ " + errorAfterCode  + " throw $e; }", etype);
+								m.addCatch("{ " + errorAfterCode  + " throw $e; }", etype);
 							}
 						} catch (Exception e) {
 							System.out.println("exception in insertBefore " + met);
