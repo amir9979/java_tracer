@@ -218,6 +218,35 @@ public class MyInstrumenter implements ClassFileTransformer {
 						StringBuffer toInsert = new StringBuffer();
 						StringBuffer toInsertAfter = new StringBuffer();
 
+						String baseBeforeCode = ""
+								+ "long tid = Thread.currentThread().getId();"
+								+ "StringBuilder sbArgs = new StringBuilder();"
+								+ "long tid = Thread.currentThread().getId();"
+								+ "StringBuilder sbArgs = new StringBuilder();" 
+								+ "Class testsRunnerClass=null;" 
+								+ "try{"
+								+ "		testsRunnerClass = Class.forName(\"TestsTraces\",true, \"amir\".getClass().getClassLoader().getSystemClassLoader());"
+								+ "}catch(Exception exception){" 
+								+ "		if(testsRunnerClass==null){"
+								+ "			try{"
+								+ "				URL classUrl = new URL(System.getProperty(\"user.dir\"));"
+								+ "				URLClassLoader myLoader = URLClassLoader.newInstance(new URL[]{classUrl}, \"amir\".getClass().getClassLoader().getSystemClassLoader());"
+								+ "				System.out.println(\"before load class \" + myLoader);"
+								+ "				testsRunnerClass = Class.forName(\"TestsTraces\",true, myLoader);"
+								+ "			}catch(Exception exception2){" 
+								+ "			}" 
+								+ "		}" 
+								+ "}" 
+								+ "try{"
+								+ "		Class[] cArg = new Class[1];" 
+								+ "		cArg[0] = String.class;"
+								+ "		Object[] paramsForNewFile = {\"" + met + "\" };"
+								+ "		testsRunnerClass.getMethod(\"changefile\", cArg).invoke(null, paramsForNewFile);"
+								+ "} catch (Exception e) {" 
+								+ "		System.out.println(\"exception e\");"
+								+ "		e.printStackTrace();" 
+								+ "}";
+
 						// Load trace writer class dynamically
 						String baseAfterCode = "" 
 								+ "long tid = Thread.currentThread().getId();"
@@ -245,8 +274,6 @@ public class MyInstrumenter implements ClassFileTransformer {
 								+ "		Class[] cArg = new Class[1];" 
 								+ "		cArg[0] = String.class;"
 								+ "		Object[] paramsForRecord = {\"" + met + "\" + sbArgs.toString()};"
-								+ "		Object[] paramsForNewFile = {\"" + met + "\" };"
-								+ "		{{TRIGGER_CHANGE_FILE_ADDITIONAL}}"
 								+ "		testsRunnerClass.getMethod(\"write\", cArg).invoke(null, paramsForRecord);"
 								+ "} catch (Exception e) {" 
 								+ "		System.out.println(\"exception e\");"
@@ -273,14 +300,6 @@ public class MyInstrumenter implements ClassFileTransformer {
 							}
 						}
 						baseAfterCode = baseAfterCode.replace("{{TRACE_ARGUMENTS}}", argumentsBuffer.toString());
-
-						//if this is a test function, create a new file
-						String testFunctionAdditionalCode = "";
-						boolean isTestFunction = (cc.getName().contains("Test") && method.getName().startsWith("test"));
-						if (isTestFunction) {
-							testFunctionAdditionalCode = "testsRunnerClass.getMethod(\"changefile\", cArg).invoke(null, paramsForNewFile);";
-						}
-						baseAfterCode = baseAfterCode.replace("{{TRIGGER_CHANGE_FILE_ADDITIONAL}}", testFunctionAdditionalCode);
 
 						//create retval after-code (for when method is succesfull)
 						String retvalAdditionStr;
@@ -311,6 +330,11 @@ public class MyInstrumenter implements ClassFileTransformer {
 							if (editableBody) {
 								m.insertAfter(retvalAfterCode, false); //false means it is NOT "asFinally" -> executes only if an exception was not thrown
 								m.addCatch("{ " + errorAfterCode  + " throw $e; }", etype);
+							}
+							//if test function, change to a new file
+							boolean isTestFunction = (cc.getName().contains("Test") && method.getName().startsWith("test"));
+							if (isTestFunction) {
+								m.insertBefore(baseBeforeCode); 
 							}
 						} catch (Exception e) {
 							System.out.println("exception in insertBefore " + met);
