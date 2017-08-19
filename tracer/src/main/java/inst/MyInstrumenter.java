@@ -217,7 +217,8 @@ public class MyInstrumenter implements ClassFileTransformer {
 						String met = cc.getName() + "@" + method.getName();
 						StringBuffer toInsert = new StringBuffer();
 						StringBuffer toInsertAfter = new StringBuffer();
-
+						
+						//code to invoke "changefile" BEFORE execution (to make sure traces are written under current running test)
 						String baseBeforeCode = ""
 								+ "long tid = Thread.currentThread().getId();"
 								+ "StringBuilder sbArgs = new StringBuilder();"
@@ -247,7 +248,7 @@ public class MyInstrumenter implements ClassFileTransformer {
 								+ "		e.printStackTrace();" 
 								+ "}";
 
-						// Load trace writer class dynamically
+						// code to write records AFTER execution (to enable tracing return values, exceptions etc)
 						String baseAfterCode = "" 
 								+ "long tid = Thread.currentThread().getId();"
 								+ "StringBuilder sbArgs = new StringBuilder();"
