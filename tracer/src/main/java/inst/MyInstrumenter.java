@@ -156,7 +156,6 @@ public class MyInstrumenter implements ClassFileTransformer {
 			traceWriterClass.writeFile("target\\classes");
 			traceWriterClass.toClass(loader,protectionDomain);
 			gcp.addGeneratedClass(traceWriterClass); 
-			traceWriterClass.writeFile("target\\classes\\org\\eclipse\\cdt");
 			
 		} catch (Exception e) {
 			System.out.println("exception in initiate");
